@@ -35,37 +35,25 @@ The application will start on `http://localhost:8080`.
 
 ### Join Game
 
-- **Endpoint**: `/game/join`
+- **Endpoint**: `/game/join?playerName=Player1&secretNumber=1234`
 - **Method**: `POST`
-- **Request Body**:
-  ```json
-  {
-    "playerName": "Player1",
-    "secretNumber": "1234"
-  }
-  ```
 - **Response**:
   ```json
   {
-    "gameId": "game-id"
+    "gameId": "game-id",
+    "playerId": "player-id"
   }
   ```
 
 ### Make a Guess
 
-- **Endpoint**: `/game/guess`
+- **Endpoint**: `/game/guess?gameId=game-id&playerId=player-id&guess=5678`
 - **Method**: `POST`
-- **Request Body**:
-  ```json
-  {
-    "gameId": "game-id",
-    "playerId": "Player1",
-    "guess": "5678"
-  }
-  ```
 - **Response**:
   ```json
   {
+    "playerId": "player-id",
+    "guess": "5678",
     "strikes": 1,
     "balls": 2
   }
@@ -82,3 +70,4 @@ To run the tests, use the following command:
 ## License
 
 This project is licensed under the MIT License. See the `LICENSE` file for details.
+```

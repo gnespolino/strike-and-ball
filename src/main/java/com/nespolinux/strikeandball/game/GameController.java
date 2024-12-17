@@ -2,6 +2,7 @@ package com.nespolinux.strikeandball.game;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -26,6 +27,9 @@ public class GameController {
       @RequestParam(value = "privateGame", defaultValue = "false") boolean privateGame) {
     if (privateGame) {
       return gameService.createGame(playerName, secretNumber);
+    }
+    if (Objects.nonNull(gameId)) {
+      return gameService.joinGame(gameId, playerName, secretNumber);
     }
     return gameService.createOrJoinGame(playerName, secretNumber);
   }

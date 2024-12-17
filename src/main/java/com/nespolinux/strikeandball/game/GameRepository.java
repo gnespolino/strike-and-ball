@@ -36,7 +36,7 @@ public class GameRepository {
     int balls = getBall(guess, playerToCheck.getSecret());
     Guess newGuess = Guess.builder()
         .playerId(playerId)
-        .guess(guess)
+        .attempt(guess)
         .strikes(strikes)
         .balls(balls)
         .build();
@@ -71,5 +71,17 @@ public class GameRepository {
         .filter(game -> !game.isPrivateGame())
         .filter(game -> Objects.isNull(game.getPlayer2()))
         .findFirst();
+  }
+
+  public Game getGameById(String gameId) {
+    Game game = getGame(gameId);
+    if (!game.isPrivateGame()) {
+      throw new IllegalArgumentException("Only private games can be joined directly");
+    }
+    // if both players are already in the game, it is not possible to join
+    if (game.getPlayer2() != null) {
+      throw new IllegalArgumentException("Game is full");
+    }
+    return game;
   }
 }

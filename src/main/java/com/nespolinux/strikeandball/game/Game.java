@@ -25,8 +25,7 @@ public class Game {
   }
 
   public boolean isFinished() {
-    return guesses.stream()
-        .reduce((first, second) -> second)
+    return getLastGuess()
         .map(Guess::getStrikes)
         .orElse(0) == 4;
   }
@@ -51,13 +50,14 @@ public class Game {
   }
 
   private Optional<Guess> getLastGuess() {
-    return guesses.stream()
-        .reduce((first, second) -> second);
+    if (guesses.isEmpty()) {
+      return Optional.empty();
+    }
+    return Optional.of(guesses.getLast());
   }
 
   public String getWinner() {
-    return guesses.stream()
-        .reduce((first, second) -> second)
+    return getLastGuess()
         .filter(guess -> guess.getStrikes() == 4)
         .map(Guess::getPlayerId)
         .map(playerId -> isPlayer1(playerId) ? player1.getName() : player2.getName())

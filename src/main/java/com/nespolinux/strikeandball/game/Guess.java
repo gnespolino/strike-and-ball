@@ -8,7 +8,7 @@ import lombok.Data;
 public class Guess {
 
   private final String playerId;
-  private final char[] guess;
+  private final char[] attempt;
   private final int strikes;
   private final int balls;
 

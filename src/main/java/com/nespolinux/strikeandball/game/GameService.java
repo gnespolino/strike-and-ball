@@ -41,6 +41,22 @@ public class GameService {
         .build();
   }
 
+  public GameLoginResponse joinGame(String gameId, String playerName, char[] secret) {
+    Player player = Player.builder()
+        .name(playerName)
+        .secret(secret)
+        .build();
+
+    GameLoginResponse.GameLoginResponseBuilder gameLoginResponseBuilder = GameLoginResponse.builder()
+        .playerId(player.getPlayerId());
+
+    Game existingGame = gameRepository.getGameById(gameId);
+
+    return gameLoginResponseBuilder
+        .gameId(existingGame.getGameId())
+        .build();
+  }
+
   public Guess guess(String gameId, String playerId, char[] guess) {
     Game game = gameRepository.getGame(gameId);
     synchronized (game) {
@@ -95,7 +111,7 @@ public class GameService {
         .guesses(game.getGuesses().stream()
             .map(guess -> Guess.builder()
                 .playerId(playersById.get(guess.getPlayerId()).getName())
-                .guess(guess.getGuess())
+                .attempt(guess.getAttempt())
                 .strikes(guess.getStrikes())
                 .balls(guess.getBalls())
                 .build())
@@ -113,4 +129,5 @@ public class GameService {
         .gameId(gameRepository.createGame(player, true))
         .build();
   }
+
 }

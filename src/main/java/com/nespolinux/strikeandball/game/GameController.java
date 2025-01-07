@@ -43,7 +43,7 @@ public class GameController {
 
   @GetMapping("/game/status")
   public GameStatus status(@RequestParam("gameId") String gameId) {
-    return gameService.status(gameId);
+    return gameService.getGameStatus(gameId);
   }
 
   @ControllerAdvice

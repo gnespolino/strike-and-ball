@@ -1,5 +1,6 @@
 package com.nespolinux.strikeandball.game;
 
+import com.nespolinux.strikeandball.game.Game.PlayerSecret;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -11,9 +12,9 @@ public class GameRepository {
 
   private final Map<String, Game> games = new HashMap<>();
 
-  public String createGame(Player player, boolean privateGame) {
+  public String createGame(PlayerSecret playerSecret, boolean privateGame) {
     Game game = addOrUpdateGame(Game.builder()
-        .player1(player)
+        .playerSecret1(playerSecret)
         .privateGame(privateGame)
         .build());
     return game.getGameId();
@@ -31,9 +32,9 @@ public class GameRepository {
 
   public Guess makeGuess(String gameId, String playerId, char[] guess) {
     Game game = getGame(gameId);
-    Player playerToCheck = game.isPlayer1(playerId) ? game.getPlayer2() : game.getPlayer1();
-    int strikes = getStrike(guess, playerToCheck.getSecret());
-    int balls = getBall(guess, playerToCheck.getSecret());
+    PlayerSecret playerSecretToCheck = game.isPlayer1(playerId) ? game.getPlayerSecret2() : game.getPlayerSecret1();
+    int strikes = getStrike(guess, playerSecretToCheck.getSecret().getSecret());
+    int balls = getBall(guess, playerSecretToCheck.getSecret().getSecret());
     Guess newGuess = Guess.builder()
         .playerId(playerId)
         .attempt(guess)
@@ -66,22 +67,10 @@ public class GameRepository {
     return balls;
   }
 
-  public Optional<Game> getGameWaitingForPlayer() {
+  public Optional<Game> getFirstPendingGame() {
     return games.values().stream()
         .filter(game -> !game.isPrivateGame())
-        .filter(game -> Objects.isNull(game.getPlayer2()))
+        .filter(game -> Objects.isNull(game.getPlayerSecret2()))
         .findFirst();
-  }
-
-  public Game getGameById(String gameId) {
-    Game game = getGame(gameId);
-    if (!game.isPrivateGame()) {
-      throw new IllegalArgumentException("Only private games can be joined directly");
-    }
-    // if both players are already in the game, it is not possible to join
-    if (game.getPlayer2() != null) {
-      throw new IllegalArgumentException("Game is full");
-    }
-    return game;
   }
 }

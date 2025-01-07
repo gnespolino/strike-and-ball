@@ -12,5 +12,4 @@ public class Player {
   @Default
   private final String playerId = UUID.randomUUID().toString();
   private final String name;
-  private final char[] secret;
 }

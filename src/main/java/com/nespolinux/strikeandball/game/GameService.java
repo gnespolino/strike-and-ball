@@ -1,5 +1,6 @@
 package com.nespolinux.strikeandball.game;
 
+import com.nespolinux.strikeandball.game.Game.PlayerSecret;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -17,40 +18,43 @@ public class GameService {
 
   public synchronized GameLoginResponse createOrJoinGame(String playerName, char[] secret) {
 
-    Player player = Player.builder()
-        .name(playerName)
-        .secret(secret)
-        .build();
+    PlayerSecret playerSecret = PlayerSecret.buildPlayerSecret(playerName, secret);
 
     GameLoginResponse.GameLoginResponseBuilder gameLoginResponseBuilder = GameLoginResponse.builder()
-        .playerId(player.getPlayerId());
+        .playerId(playerSecret.getPlayerId());
 
-    Optional<Game> gameWithoutSecondPlayer = gameRepository.getGameWaitingForPlayer();
+    Optional<Game> pendingGame = gameRepository.getFirstPendingGame();
 
-    if (gameWithoutSecondPlayer.isPresent()) {
+    if (pendingGame.isPresent()) {
       Game game = gameRepository.addOrUpdateGame(
-          gameWithoutSecondPlayer.get().toBuilder()
-              .player2(player)
+          pendingGame.get().toBuilder()
+              .playerSecret2(playerSecret)
               .build());
       return gameLoginResponseBuilder
           .gameId(game.getGameId())
           .build();
     }
     return gameLoginResponseBuilder
-        .gameId(gameRepository.createGame(player, false))
+        .gameId(gameRepository.createGame(playerSecret, false))
         .build();
   }
 
   public GameLoginResponse joinGame(String gameId, String playerName, char[] secret) {
-    Player player = Player.builder()
-        .name(playerName)
-        .secret(secret)
-        .build();
+    PlayerSecret playerSecret = PlayerSecret.buildPlayerSecret(playerName, secret);
 
     GameLoginResponse.GameLoginResponseBuilder gameLoginResponseBuilder = GameLoginResponse.builder()
-        .playerId(player.getPlayerId());
+        .playerId(playerSecret.getPlayerId());
 
-    Game existingGame = gameRepository.getGameById(gameId);
+    Game existingGame = gameRepository.getGame(gameId);
+
+    if (!existingGame.isPrivateGame()) {
+      throw new IllegalArgumentException("Only private games can be joined directly");
+    }
+
+    // if both players are already in the game, it is not possible to join
+    if (existingGame.getPlayerSecret2() != null) {
+      throw new IllegalArgumentException("Game is full");
+    }
 
     return gameLoginResponseBuilder
         .gameId(existingGame.getGameId())
@@ -60,52 +64,40 @@ public class GameService {
   public Guess guess(String gameId, String playerId, char[] guess) {
     Game game = gameRepository.getGame(gameId);
     synchronized (game) {
-      checkPlayerCanGuess(game, playerId);
+      if (!game.hasPlayer(playerId)) {
+        throw new IllegalArgumentException("Player " + playerId + " is not in this game");
+      }
+      if (game.isFinished()) {
+        throw new IllegalArgumentException("Game " + game + " is finished");
+      }
+      if (game.isPlayer1(playerId) && Objects.isNull(game.getPlayerSecret2())) {
+        throw new IllegalArgumentException(
+            "Game " + game + " not started, waiting for second player to join");
+      }
+      if (!game.isPlayersTurn(playerId)) {
+        throw new IllegalArgumentException("Not your turn");
+      }
       return gameRepository.makeGuess(gameId, playerId, guess);
     }
   }
 
-  private void checkPlayerCanGuess(Game game, String playerId) {
-    checkPlayerIsInGame(game, playerId);
-    checkGameIsInProgress(game, playerId);
-    checkPlayerTurn(game, playerId);
-  }
-
-  private void checkPlayerTurn(Game game, String playerId) {
-    if (!game.isPlayersTurn(playerId)) {
-      throw new IllegalArgumentException("Not your turn");
-    }
-  }
-
-  private void checkGameIsInProgress(Game game, String playerId) {
-    if (game.isFinished()) {
-      throw new IllegalArgumentException("Game is finished");
-    }
-    if (game.isPlayer1(playerId) && Objects.isNull(game.getPlayer2())) {
-      throw new IllegalArgumentException("Game not started, waiting for second player to join");
-    }
-  }
-
-  private void checkPlayerIsInGame(Game game, String playerId) {
-    if (!game.hasPlayer(playerId)) {
-      throw new IllegalArgumentException("Player not in this game");
-    }
-  }
-
-  public GameStatus status(String gameId) {
+  public GameStatus getGameStatus(String gameId) {
     Game game = gameRepository.getGame(gameId);
     Map<String, Player> playersById =
-        Stream.of(game.getPlayer1(), game.getPlayer2())
+        Stream.of(game.getPlayerSecret1(), game.getPlayerSecret2())
             .filter(Objects::nonNull)
-            .collect(Collectors.toMap(Player::getPlayerId,
+            .map(PlayerSecret::getPlayer)
+            .collect(Collectors.toMap(
+                Player::getPlayerId,
                 Function.identity()));
     return GameStatus.builder()
         .gameId(game.getGameId())
-        .started(game.getPlayer2() != null)
+        .started(game.getPlayerSecret2() != null)
         .finished(game.isFinished())
         .winner(game.getWinner())
-        .playerName1(game.getPlayer1().getName())
-        .playerName2(Optional.ofNullable(game.getPlayer2())
+        .playerName1(game.getPlayerSecret1().getPlayer().getName())
+        .playerName2(Optional.ofNullable(game.getPlayerSecret2())
+            .map(PlayerSecret::getPlayer)
             .map(Player::getName)
             .orElse(null))
         .guesses(game.getGuesses().stream()
@@ -120,10 +112,7 @@ public class GameService {
   }
 
   public GameLoginResponse createGame(String playerName, char[] secretNumber) {
-    Player player = Player.builder()
-        .name(playerName)
-        .secret(secretNumber)
-        .build();
+    PlayerSecret player = PlayerSecret.buildPlayerSecret(playerName, secretNumber);
     return GameLoginResponse.builder()
         .playerId(player.getPlayerId())
         .gameId(gameRepository.createGame(player, true))
